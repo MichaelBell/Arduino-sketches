@@ -13,7 +13,7 @@ void setup()
 {
  MANCHESTER.SetRxPin(RxPin); //user sets rx pin default 4
  MANCHESTER.SetTimeOut(1000); //user sets timeout default blocks
- Serial.begin(9600); // Debugging only
+ Serial.begin(115200); // Debugging only
 }//end of setup
 
 void loop()
