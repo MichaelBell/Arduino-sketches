@@ -52,6 +52,33 @@ unsigned char MANCHESTERClass::ReceivedTimeout(void)
   return wasTimeout;
 }
 
+void MANCHESTERClass::AddManBit(unsigned int *manBits, unsigned char *numMB, 
+                                unsigned char *curByte, unsigned char *data, 
+                                unsigned char bit)
+{
+  *manBits <<= 1;
+  *manBits |= bit;
+  (*numMB)++;
+  if (*numMB == 16)
+  {
+    unsigned char newData = 0;
+
+    for (char i = 0; i < 8; i++)
+    {
+      // ManBits holds 16 bits of manchester data
+      // 1 = LO,HI
+      // 0 = HI,LO
+      // We can decode each bit by looking at the bottom bit of each pair.
+      newData |= (*manBits & 1); // store the one
+      newData << 1;
+      *manBits = *manBits >> 2; //get next data bit    
+    }
+    data[*curByte] = newData;
+    (*curByte)++;
+    *numMB = 0;
+  }
+}
+
 /*
 The 433.92 Mhz receivers have AGC, if no signal is present the gain will be set 
 to its highest level.
@@ -71,11 +98,6 @@ The receiver is then operating correctly and we have locked onto the transmissio
 */
 unsigned int MANCHESTERClass::Receive(void)
 {
-  #if defined( __AVR_ATtinyX5__ )
-    TCCR1 = 0x08;  //counts every 16 usec with 8Mhz clock
-    TIMSK = 0;
-  #endif
-
   unsigned char data[2];
   unsigned char rcvBytes;
 
@@ -87,6 +109,11 @@ unsigned int MANCHESTERClass::Receive(void)
 
 unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned char *data)
 {
+  #if defined( __AVR_ATtinyX5__ )
+    TCCR1 = 0x08;  //counts every 16 usec with 8Mhz clock
+    TIMSK = 0;
+  #endif
+
   unsigned long timeoutstart = millis();
   unsigned char curByte = 0;
   wasTimeout = 0;
@@ -176,8 +203,8 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
       return 0;  //timed out so return to caller
     }
 
-    unsigned long ManBits = 0; //the received manchester 32 bits
-    unsigned char NumMB = 0;  //the number of received manchester bits
+    unsigned int manBits = 0; //the received manchester 32 bits
+    unsigned char numMB = 0;  //the number of received manchester bits
     boolean start = true;  //remember to ignore the start bit is a one
 
     if(locked)  //have we detected a capture pulse train
@@ -188,7 +215,7 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
       while (curByte < maxBytes)
       {
         if (!start)
-          AddManBit(1);
+          AddManBit(&manBits, &numMB, &curByte, data, 1);
         else
           start = false;
 
@@ -207,10 +234,10 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
 
         if(counthigh > MinLongCount)  //is this a double 1
         {
-          AddManBit(1);
+          AddManBit(&manBits, &numMB, &curByte, data, 1);
         }//end of we have a double 1
 
-        AddManBit(0);
+        AddManBit(&manBits, &numMB, &curByte, data, 0);
 
         // wait until RX 1
         while(digitalRead(RxPin) == 0)
@@ -226,7 +253,7 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
         }
         if(countlow > MinLongCount)  //is this a double 0
         {
-          AddManBit(0);
+          AddManBit(&manBits, &numMB, &curByte, data, 0);
         }//end of we have a double 0
       }//end of read the raw RX input
     }//end of its locked
@@ -250,8 +277,13 @@ void MANCHESTERClass::SetTxPin(char pin)
   pinMode(TxPin, OUTPUT);      // sets the digital pin 4 default as output   
 }//end of set transmit pin	
 
-
 void MANCHESTERClass::Transmit(unsigned int data)
+{
+  unsigned char byteData[2] = {data >> 8, data & 0xFF};
+  TransmitBytes(2, byteData);
+}
+
+void MANCHESTERClass::TransmitBytes(unsigned char numBytes, unsigned char *data)
 {
   // Setup last send time so we start transmitting in 10us
   lastSend = micros() - HALF_BIT_INTERVAL + 10;
@@ -263,17 +295,20 @@ void MANCHESTERClass::Transmit(unsigned int data)
   // Send a single 1
   sendone();  //start data pulse
  
-  // Send the 16 bits of user data
-  unsigned int mask = 0x01; //mask to send bits 
-  for( int i = 0; i < 16; i++)
+  // Send the user data
+  for (unsigned char i = 0; i < numBytes; i++)
   {
-    if((data & mask) == 0)
-      sendzero();
-    else
-      sendone();
-    mask = mask << 1; //get next bit
-  }//end of pulses
- 
+    unsigned int mask = 0x01; //mask to send bits 
+    for (char j = 0; j < 8; j++)
+    {
+      if ((data[i] & mask) == 0)
+        sendzero();
+      else
+        sendone();
+      mask = mask << 1; //get next bit
+    }//end of byte
+  }//end of data
+
   // Send 2 terminatings 0's
   sendzero();
   sendzero();  

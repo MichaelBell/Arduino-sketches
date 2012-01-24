@@ -40,10 +40,10 @@ The divide ratio is /256 with 16 Mhz the 328 and /128 for the 85 with a 8 Mhz cl
 This gives 16 usec per count. For a normal pulse this is 62.5 counts.
 With an error allowance of 22.5 usec we get the following:
 */
-#define LowCount 40  //pulse lower count limit on capture
-#define HighCount 85  //pulse higher count limit on capture
-#define LowLongCount 103  //pulse lower count on double pulse
-#define HighLongCount 147  //pulse higher count on double pulse
+#define MinCount 40  //pulse lower count limit on capture
+#define MaxCount 85  //pulse higher count limit on capture
+#define MinLongCount 103  //pulse lower count on double pulse
+#define MaxLongCount 147  //pulse higher count on double pulse
 
 #define TimeOutDefault -1  //the timeout in msec default blocks
 
@@ -55,12 +55,15 @@ class MANCHESTERClass
     MANCHESTERClass();  //the constructor
     void SetTxPin(char pin); //set the arduino digital pin for transmit. default 4.
     void Transmit(unsigned int data);  //transmit 16 bits of data
-    void TransmitBytes(unsigned int numBytes, unsigned char *data); // transmit a byte array
+    void TransmitBytes(unsigned char numBytes, unsigned char *data); // transmit a byte array
     void SetRxPin(char pin);  //set the arduino digital pin for receive. default 4.
     unsigned int Receive(void);  //receive 16 bits of data. 0 if times out.
-    unsigend int ReceiveBytes(unsigned int maxBytes, unsigned char *data); // receive a byte array
+    unsigned char ReceiveBytes(unsigned char maxBytes, unsigned char *data); // receive a byte array
     unsigned char ReceivedTimeout(void); //whether the receive timed out
     void SetTimeOut(unsigned int timeout); //set timeout in ms. default blocks.
+    void AddManBit(unsigned int *manBits, unsigned char *numMB,
+                   unsigned char *curByte, unsigned char *data,
+                   unsigned char bit);
     
   private:
     void sendzero(void);
