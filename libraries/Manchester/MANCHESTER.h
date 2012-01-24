@@ -55,8 +55,10 @@ class MANCHESTERClass
     MANCHESTERClass();  //the constructor
     void SetTxPin(char pin); //set the arduino digital pin for transmit. default 4.
     void Transmit(unsigned int data);  //transmit 16 bits of data
+    void TransmitBytes(unsigned int numBytes, unsigned char *data); // transmit a byte array
     void SetRxPin(char pin);  //set the arduino digital pin for receive. default 4.
     unsigned int Receive(void);  //receive 16 bits of data. 0 if times out.
+    unsigend int ReceiveBytes(unsigned int maxBytes, unsigned char *data); // receive a byte array
     unsigned char ReceivedTimeout(void); //whether the receive timed out
     void SetTimeOut(unsigned int timeout); //set timeout in ms. default blocks.
     
