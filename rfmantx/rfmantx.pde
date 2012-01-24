@@ -1,4 +1,4 @@
-#include "MANCHESTER.h"
+#include <MANCHESTER.h>
 
 // ATTiny85:
 // u
@@ -38,7 +38,7 @@ void readAndSend(int pin, unsigned int axis)
 {
   unsigned int reading = analogRead(pin);
   int diff = (int)reading - (int)old[axis];
-  if (abs(diff) > 2)
+  if (abs(diff) > 9)
   {
     resends[axis] = 3;
     old[axis] = reading;

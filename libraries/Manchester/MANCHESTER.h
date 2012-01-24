@@ -42,7 +42,8 @@ With an error allowance of 22.5 usec we get the following:
 */
 #define LowCount 40  //pulse lower count limit on capture
 #define HighCount 85  //pulse higher count limit on capture
-#define LongCount 107  //pulse lower count on double pulse
+#define LowLongCount 103  //pulse lower count on double pulse
+#define HighLongCount 147  //pulse higher count on double pulse
 
 #define TimeOutDefault -1  //the timeout in msec default blocks
 
@@ -56,14 +57,17 @@ class MANCHESTERClass
     void Transmit(unsigned int data);  //transmit 16 bits of data
     void SetRxPin(char pin);  //set the arduino digital pin for receive. default 4.
     unsigned int Receive(void);  //receive 16 bits of data. 0 if times out.
+    unsigned char ReceivedTimeout(void); //whether the receive timed out
     void SetTimeOut(unsigned int timeout); //set timeout in ms. default blocks.
     
   private:
-    inline void sendzero(void);
-    inline void sendone(void);
+    void sendzero(void);
+    void sendone(void);
     unsigned char  RxPin;
     unsigned char  TxPin;
     unsigned int  TimeOut;
+    unsigned long lastSend;
+    unsigned char wasTimeout;
    
 };//end of class MANCHESTER
 

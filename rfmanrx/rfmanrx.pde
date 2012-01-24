@@ -1,4 +1,4 @@
-#include "MANCHESTER.h"
+#include <MANCHESTER.h>
 
 #define RxPin 4
 
@@ -34,14 +34,17 @@ void loop()
     if (axis == 0)
     {
       X = reading;
+      Serial.print("X");
     }
     else if (axis == 1)
     {
       Y = reading;
+      Serial.print("Y");
     }
     else if (axis == 2)
     {
       Z = reading;
+      Serial.print("Z");
     }
     if (oldX != X || oldY != Y || oldZ != Z)
     {
@@ -55,8 +58,8 @@ void loop()
       oldZ = Z;
     }
   }
-  else
+  else if (data != 0)
   {
-    //Serial.println("Bad reading");
+    Serial.println("Bad reading");
   }
 }//end of loop
