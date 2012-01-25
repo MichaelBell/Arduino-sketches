@@ -69,8 +69,8 @@ void MANCHESTERClass::AddManBit(unsigned int *manBits, unsigned char *numMB,
       // 1 = LO,HI
       // 0 = HI,LO
       // We can decode each bit by looking at the bottom bit of each pair.
+      newData <<= 1;
       newData |= (*manBits & 1); // store the one
-      newData << 1;
       *manBits = *manBits >> 2; //get next data bit    
     }
     data[*curByte] = newData;
@@ -119,7 +119,7 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
   wasTimeout = 0;
 
   // we keep looking at the receiver output for a transmission
-  for(;;)  
+  for(;;)
   {
     unsigned char countlow = 0;
     unsigned char counthigh = 0;
@@ -256,8 +256,11 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
           AddManBit(&manBits, &numMB, &curByte, data, 0);
         }//end of we have a double 0
       }//end of read the raw RX input
+      if (curByte > 0)
+        break;
     }//end of its locked
   }//end of look until find data or timeout
+  return curByte;
 }//end of receive data
 
 void MANCHESTERClass::SetTimeOut(unsigned int timeout)
