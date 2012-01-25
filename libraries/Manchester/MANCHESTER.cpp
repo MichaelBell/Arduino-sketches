@@ -52,6 +52,10 @@ unsigned char MANCHESTERClass::ReceivedTimeout(void)
   return wasTimeout;
 }
 
+/*
+Record a new received Manchester bit.  If we've now received 16 Manchester bits,
+spit a new decoded byte out into the received data.
+*/
 void MANCHESTERClass::AddManBit(unsigned int *manBits, unsigned char *numMB, 
                                 unsigned char *curByte, unsigned char *data, 
                                 unsigned char bit)
