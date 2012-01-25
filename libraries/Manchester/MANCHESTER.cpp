@@ -210,7 +210,12 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
     if(locked)  //have we detected a capture pulse train
     {
       // This section reads the raw RX input
-      // The first manchester bit is the HI from the end of the lock
+      // It keeps reading data until either we lose the lock (due to the transmitter
+      // stopping, or interference) or we hit the maximum number of bytes the user
+      // wanted.  It then returns all complete bytes that were read.  It's up to the
+      // user to decide what to do if fewer bytes than expected were returned.
+      //
+      // The first manchester bit is the HI from the end of the lock - ignore it
       // The lock ended with receiving a HI so we know we start with a HI here
       while (curByte < maxBytes)
       {
@@ -256,10 +261,17 @@ unsigned char MANCHESTERClass::ReceiveBytes(unsigned char maxBytes, unsigned cha
           AddManBit(&manBits, &numMB, &curByte, data, 0);
         }//end of we have a double 0
       }//end of read the raw RX input
+
       if (curByte > 0)
+      {
+        // We successfully received at least one byte, 
+        // stop looping and return it to the user
         break;
+      }
     }//end of its locked
   }//end of look until find data or timeout
+
+  // Return number of bytes received.
   return curByte;
 }//end of receive data
 
