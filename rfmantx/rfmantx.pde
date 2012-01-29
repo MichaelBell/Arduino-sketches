@@ -16,43 +16,74 @@ unsigned int old[3] = {0, 0, 0};
 
 byte resends[3] = {0, 0, 0};
 
+unsigned long lastMillis = 0;
+
 void setup()
 {
   MANCHESTER.SetTxPin(TxPin); // sets the digital pin as output default 4
 }//end of setup
 
-void encodeAndSend(unsigned int axis, unsigned int reading)
+void encodeAndSend()
 {
   // Send data, encoded:
   // 4 bits: simple XOR checksum
-  // 2 bits: axis: 0 = X, 1 = Y, 2 = Z
-  // 10 bits: reading
-  unsigned int data = 0xF000 | ((axis << 10) & 0xC00) | (reading & 0x3FF);
-  data ^= (data << 4) & 0xF000;
-  data ^= (data << 8) & 0xF000;
-  data ^= (data << 12) & 0xF000;
-  MANCHESTER.Transmit(data);
+  // 1 bit: 0
+  // 1 bit: X reading present
+  // 1 bit: Y reading present
+  // 1 bit: Z reading present
+  // 8 bits: X reading, if present
+  // 8 bits: Y reading, if present
+  // 8 bits: Z reading, if present
+  unsigned char data[4] = {0,0,0,0};
+  unsigned char idx = 1;
+  
+  for (unsigned char axis = 0; axis < 3; axis++)
+  {
+    if (resends[axis] > 0)
+    {
+      resends[axis]--;
+      data[idx] = (unsigned char)(old[axis] >> 2);
+      data[0] |= (1 << (2 - axis));
+      idx++;
+    }
+  }
+  
+  if (idx == 1)
+  {
+    // Nothing to transmit
+    return;
+  }
+  
+  for (unsigned char i = 0; i < idx; i++)
+    data[0] ^= (data[i] & 0xF0) ^ (data[i] << 4);
+
+  MANCHESTER.TransmitBytes(idx, data);
 }
 
-void readAndSend(int pin, unsigned int axis)
+void readReading(int pin, unsigned int axis)
 {
   unsigned int reading = analogRead(pin);
   int diff = (int)reading - (int)old[axis];
-  if (abs(diff) > 9)
+  if (abs(diff) > 7)
   {
     resends[axis] = 3;
     old[axis] = reading;
-  }
-  if (resends[axis] > 0)
-  {
-    encodeAndSend(axis, old[axis]);
-    resends[axis]--;
   }
 }
 
 void loop()
 {
-  readAndSend(XPin, 0);
-  readAndSend(YPin, 1);
-  readAndSend(ZPin, 2);
+  readReading(XPin, 0);
+  readReading(YPin, 1);
+  readReading(ZPin, 2);
+  
+  if (millis() > lastMillis + 8000)
+  {
+    resends[0]++;
+    resends[1]++;
+    resends[2]++;
+    lastMillis = millis();
+  }
+  
+  encodeAndSend();
 }//end of loop

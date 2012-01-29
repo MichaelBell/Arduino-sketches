@@ -5,20 +5,17 @@
 #define PowerClkPin 2
 #define PowerDataPin 3
 
-unsigned int X = 0;
-unsigned int Y = 0;
-unsigned int Z = 0;
-unsigned int oldX = 0;
-unsigned int oldY = 0;
-unsigned int oldZ = 0;
+unsigned char current[3] = {0,0,0};
+unsigned int avg[3] = {0x8000, 0x8000, 0x8000};
+unsigned char numReadings[3] = {0,0,0};
 
-unsigned char power = 0;
+unsigned char power = 60;
 
 
 void setup()
 {
  MANCHESTER.SetRxPin(RxPin); //user sets rx pin default 4
- MANCHESTER.SetTimeOut(100); //user sets timeout default blocks
+ MANCHESTER.SetTimeOut(200); //user sets timeout default blocks
  
  pinMode(PowerClkPin, OUTPUT);
  pinMode(PowerDataPin, OUTPUT);
@@ -29,21 +26,33 @@ void setup()
 
 void setPower(unsigned char power)
 {
-  Serial.print("Power: ");
+  Serial.print(" P=");
   Serial.println(power, DEC);
   
   digitalWrite(PowerClkPin, HIGH);
-  delayMicroseconds(10);
+  delayMicroseconds(2);
   digitalWrite(PowerClkPin, LOW);
 
   for (int i = 0; i < 8; i++) 
   {
     digitalWrite(PowerDataPin, (power & (1<<i)) ? HIGH : LOW);
-    delayMicroseconds(10);
+    delayMicroseconds(2);
     digitalWrite(PowerClkPin, HIGH);
-    delayMicroseconds(10);
+    delayMicroseconds(2);
     digitalWrite(PowerClkPin, LOW);
   }    
+}
+
+void readReading(unsigned char axis, unsigned char reading)
+{
+  current[axis] = reading;
+  unsigned long newAvg = ((unsigned long)avg[axis]) * ((unsigned long)numReadings[axis]) + ((unsigned long)reading << 8);
+  numReadings[axis]++;
+  avg[axis] = (unsigned int)(newAvg / numReadings[axis]);
+  
+  // Avoid overflow.
+  if (numReadings[axis] > 20)
+    numReadings[axis] = 20;
 }
 
 void loop()
@@ -52,62 +61,76 @@ void loop()
   // 4 bits: simple XOR checksum
   // 2 bits: axis: 0 = X, 1 = Y, 2 = Z
   // 10 bits: reading
-  unsigned int data = MANCHESTER.Receive();
+  unsigned char data[4];
+  unsigned char bytesRcvd = MANCHESTER.ReceiveBytes(4, data);
   
-  // Confirm checksum
-  unsigned int check = (data & 0xF) ^ ((data >> 4) & 0xF) ^ ((data >> 8) & 0xF) ^ (data >> 12);
-  if (check == 0xF)
+  if (bytesRcvd >= 2)
   {
-    // Checksum OK, extract data
-    unsigned int axis = (data >> 10) & 0x3;
-    unsigned int reading = data & 0x3FF;
-    int diff = 0;
-    if (axis == 0)
+    unsigned char check = 0;
+    for (unsigned char i = 0; i < bytesRcvd; i++)
     {
-      diff = X - reading;
-      X = reading;
-      Serial.print("X");
+      check ^= (data[i] & 0xF) ^ (data[i] >> 4);
     }
-    else if (axis == 1)
+    
+    if (check == 0x0)
     {
-      diff = Y - reading;
-      Y = reading;
-      Serial.print("Y");
-    }
-    else if (axis == 2)
-    {
-      diff = Z - reading;
-      Z = reading;
-      Serial.print("Z");
-    }
-    diff = abs(diff);
-    if (diff != 0)
-    {
-      Serial.print(X, DEC);
-      Serial.print(" ");
-      Serial.print(Y, DEC);
-      Serial.print(" ");
-      Serial.println(Z, DEC);  
-      oldX = X;
-      oldY = Y;
-      oldZ = Z;
-      if (power > (diff / 10))
+      // Checksum OK, extract data
+      unsigned char idx = 1;
+      if (data[0] & 0x4)
       {
-        power-=(diff/10);
+        Serial.print(" X=");
+        Serial.print(data[idx], DEC);
+        readReading(0, data[idx]);
+        Serial.print(",");
+        Serial.print(avg[0] >> 8, DEC);
+        idx++;
       }
-      else
-        power = 0;
-      setPower(power);
+      if (data[0] & 0x2)
+      {
+        Serial.print(" Y=");
+        Serial.print(data[idx], DEC);
+        readReading(1, data[idx]);
+        Serial.print(",");
+        Serial.print(avg[1] >> 8, DEC);
+        idx++;
+      }
+      if (data[0] & 0x1)
+      {
+        Serial.print(" Z=");
+        Serial.print(data[idx], DEC);
+        readReading(2, data[idx]);
+        Serial.print(",");
+        Serial.print(avg[2] >> 8, DEC);
+        idx++;
+      }
+    }
+    else 
+    {
+      Serial.print("Bad ");
+      Serial.println(check, HEX);
     }
   }
-  else if (data != 0)
+
+  unsigned char maxDiff = 0;
+  for (unsigned char i = 0; i < 3; i++)
   {
-    Serial.println("Bad reading");
+    int diff = (int)current[i] - (int)(avg[i] >> 8);
+    if (i == 2) diff >>= 1;
+    unsigned char thisDiff = (unsigned char)abs(diff);
+    if (thisDiff > maxDiff) maxDiff = thisDiff;
   }
-  else
+
+  if (maxDiff < 5 && power < 240)
   {
-      power+=5;
-      setPower(power);
-//    Serial.println("Nothing");
+    if (power < 120)
+      power += 10;
+    else
+      power += 4;
   }
+  else if (maxDiff > 20)
+    power = 80;
+  else if (maxDiff > 10 && power > 80)
+    power -= 4;
+  setPower(power);
+
 }//end of loop
