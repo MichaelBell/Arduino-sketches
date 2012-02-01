@@ -17,6 +17,7 @@ unsigned char power = 40;
 
 void setup()
 {
+  delay(1000);  // Try to avoid sending debug when being reprogrammed.
  MANCHESTER.SetRxPin(RxPin); //user sets rx pin default 4
  MANCHESTER.SetTimeOut(200); //user sets timeout default blocks
  
@@ -24,7 +25,7 @@ void setup()
  pinMode(PowerDataPin, OUTPUT);
  digitalWrite(PowerClkPin, LOW);
  
- Serial.begin(115200); // Debugging only
+ Serial.begin(57600); // Debugging only
 }//end of setup
 
 void writeByte(unsigned char data)
@@ -49,10 +50,6 @@ void sendData()
 #ifdef POWER_DBG
   Serial.print(" P=");
   Serial.println(power, DEC);
-#else
-#ifdef ACCEL_DBG
-  Serial.println("");
-#endif
 #endif
 
   writeByte(power);
@@ -132,6 +129,11 @@ void loop()
 #endif
         idx++;
       }
+#ifdef ACCEL_DBG
+#ifndef POWER_DBG
+        Serial.println("");
+#endif
+#endif
     }
     else 
     {
@@ -139,6 +141,8 @@ void loop()
       Serial.println(check, HEX);
     }
   }
+  else if (bytesRcvd == 1) 
+    Serial.println(data[0], HEX);
 
   unsigned char maxDiff = 0;
   for (unsigned char i = 0; i < 3; i++)

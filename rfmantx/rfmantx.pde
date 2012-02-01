@@ -77,7 +77,7 @@ void loop()
   readReading(YPin, 1);
   readReading(ZPin, 2);
   
-  if (millis() > lastMillis + 8000)
+  if (millis() > lastMillis + 1000)
   {
     resends[0]++;
     resends[1]++;
